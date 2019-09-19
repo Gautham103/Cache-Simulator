@@ -12,6 +12,7 @@
 
 #define TOTAL_ADDRESS_BITS 64
 #define KB 1024
+#define INCREMENT 1
 
 using namespace std;
 typedef struct 
@@ -45,18 +46,20 @@ unsigned long int total_write = 0;
 unsigned long int total_hit = 0;
 
 
-void check_cache_entry (vector<vector<cache_entries>> &cache, int set_id, int assoc, unsigned long int addr, char mode)
+void check_cache_entry (vector<vector<cache_entries>> &cache, int set_id, int assoc,
+        unsigned long int addr, char mode, char rep_policy)
 {
     //cout << "============================== Entering Cache ======================================" << endl;
     //cout << "input addr " << addr << endl;
     bool found = false;
     int j = 0;
+    srand(time(0));
 
-    total_access++;
+    total_access = total_access + INCREMENT;
     if (mode == 'r')
-        total_read++;
+        total_read = total_read + INCREMENT;
     else 
-        total_write++;
+        total_write = total_write + INCREMENT;
     
 
     for (int i = 0; i < assoc; i++)
@@ -93,8 +96,13 @@ void check_cache_entry (vector<vector<cache_entries>> &cache, int set_id, int as
             else
             {
                 //cout << "cache["<< set_id << "][" << i << "].freq " << cache[set_id][i].freq << endl;
-                if (cache[set_id][i].freq < cache[set_id][j].freq)
-                    j = i;
+                if (rep_policy == 'l')
+                {
+                    if (cache[set_id][i].freq < cache[set_id][j].freq)
+                        j = i;
+                }
+                else if (rep_policy == 'r')
+                    j = rand() % assoc;
             }
         }
 
@@ -104,14 +112,14 @@ void check_cache_entry (vector<vector<cache_entries>> &cache, int set_id, int as
         cache[set_id][j].freq = 1;
     }
 
-   // cout << "============================== Exiting Cache ======================================" << endl;
+    // cout << "============================== Exiting Cache ======================================" << endl;
 }
 
 int main(int argc,char *argv[])
 {
 
     int nk = 0, assoc = 0, blocksize = 0;
-    char r_policy;
+    char rep_policy;
     unsigned long int nb = 0, ns = 0;
     int bo = 0, si = 0, tag = 0;
 
@@ -123,12 +131,12 @@ int main(int argc,char *argv[])
     nk = atoi (argv[1]);
     assoc = atoi (argv[2]);
     blocksize = atoi (argv[3]);
-    r_policy = argv[4][0];
+    rep_policy = argv[4][0];
 
     cout << "nk " << nk << endl;
     cout << "assoc " << assoc << endl;
     cout << "blocksize " << blocksize << endl;
-    cout << "r_policy " << r_policy << endl;
+    cout << "rep_policy " << rep_policy << endl;
 
 
     nb = (nk * KB) / blocksize;
@@ -177,13 +185,13 @@ int main(int argc,char *argv[])
 
         offset = addr % blocksize;
 
-        check_cache_entry (cache, set_id, assoc, addr, mode);
+        check_cache_entry (cache, set_id, assoc, addr, mode, rep_policy);
         ss.clear ();
     }
 
     cout.setf(ios_base::fixed, ios_base::floatfield); 
     cout<<"\n";
-   
+
     cout<< "Total Miss "<< miss << " " << " Miss% " << 100*(double)miss/(double)total_access <<"%" << endl;
     cout<< "TotalReadMiss "<< rmiss << " " << " ReadMiss% " << 100*(double)rmiss/(double)total_read <<"%"<< endl;
     cout<< "TotalWriteMiss "<< wmiss << " " << " WriteMiss% " << 100*(double)wmiss/(double)total_write <<"%"<< endl;
