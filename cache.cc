@@ -9,6 +9,8 @@
 #include <sstream> // For passing command line parameters using stringstream
 #include<fstream> // For file operations
 #include<vector> // For file operations
+#include <sys/time.h>
+
 
 #define TOTAL_ADDRESS_BITS 64
 #define KB 1024
@@ -19,7 +21,8 @@ typedef struct
 {
     bool ispresent;
     unsigned long long int tag;
-    unsigned long long int freq;
+    time_t   sec;  
+    long     nano_sec;
 }cache_entries;
 
 int Decimal_Binary_bits (int n)
@@ -46,14 +49,13 @@ unsigned long int total_write = 0;
 unsigned long int total_hit = 0;
 
 
-void check_cache_entry (vector<vector<cache_entries>> &cache, int set_id, int assoc,
+void check_cache_entry (vector<vector<cache_entries> > &cache, int set_id, int assoc,
         unsigned long int addr, char mode, char rep_policy, unsigned long int tag)
 {
-   //cout << "============================== Entering Cache ======================================" << endl;
-   // cout << "input addr " << addr << " tag " << tag << " set index " << set_id << endl;
     bool found = false;
     int j = 0, i = 0;
     srand(time(0));
+    struct timespec t;
 
     total_access++;
     if (mode == 'r')
@@ -68,17 +70,16 @@ void check_cache_entry (vector<vector<cache_entries>> &cache, int set_id, int as
                 && (cache[set_id][i].tag == tag))
         {
             found = true;
-            cache[set_id][i].freq += 1;
+            clock_gettime(CLOCK_MONOTONIC, &t);
+            cache[set_id][i].sec = t.tv_sec;
+            cache[set_id][i].nano_sec = t.tv_nsec;
             total_hit++;
-            //cout << "hit count " << total_hit<<  endl;
-
             break;
         }
     }
 
     if (!found)
     {
-        //cout << "NOt found " << endl;
         miss++;
         if (mode == 'r')
             rmiss++;
@@ -89,41 +90,33 @@ void check_cache_entry (vector<vector<cache_entries>> &cache, int set_id, int as
         {
             if (cache[set_id][i].ispresent == false)
             {
-               // cout << "Empty block found" << endl;
                 j = i;
                 break;
             }
             else
             {
-                //cout << "cache["<< set_id << "][" << i << "].freq " << cache[set_id][i].freq << endl;
                 if (rep_policy == 'l')
                 {
-                    if (cache[set_id][i].freq < cache[set_id][j].freq)
-                        j = i;
+                    
+
+                      if ((cache[set_id][i].sec == cache[set_id][j].sec) && cache[set_id][i].nano_sec < cache[set_id][j].nano_sec)
+                          j = i;
+                      if ((cache[set_id][i].sec < cache[set_id][j].sec))
+                          j = i;
+
                 }
                 else if (rep_policy == 'r')
                     j = rand() % assoc;
             }
         }
 
-#if 0
-        if (i == assoc)
-        {
-            cout << "============================== Entering Cache ======================================" << endl;
-            for (int i = 0; i < assoc; i++)
-            {
-                cout << "cache["<< set_id << "][" << i << "].freq " << cache[set_id][i].freq << endl;                
-            }
-            cout << "j " << j << endl;
-            cout << "============================== Exiting Cache ======================================" << endl << endl;
-        }
-#endif
         cache[set_id][j].ispresent = true;
         cache[set_id][j].tag = tag;
-        cache[set_id][j].freq = 1;
+        clock_gettime(CLOCK_MONOTONIC, &t);
+        cache[set_id][i].sec = t.tv_sec;
+        cache[set_id][i].nano_sec = t.tv_nsec;
     }
 
-     //cout << "============================== Exiting Cache ======================================" << endl << endl;
 }
 
 
@@ -155,12 +148,6 @@ int main(int argc,char *argv[])
     blocksize = atoi (argv[3]);
     rep_policy = argv[4][0];
 
-    cout << "nk " << nk << endl;
-    cout << "assoc " << assoc << endl;
-    cout << "blocksize " << blocksize << endl;
-    cout << "rep_policy " << rep_policy << endl;
-
-
     nb = (nk * KB) / blocksize;
     ns = nb / assoc;
     bo = Decimal_Binary_bits(blocksize);
@@ -168,7 +155,6 @@ int main(int argc,char *argv[])
     tag =  TOTAL_ADDRESS_BITS - si - bo; 
 
 
-    cout<<"\n BO: "<<bo<<"\n SI: "<<si<<"\n TAG: "<<tag << endl << endl;
     r = createMask(bo+si,63);
     unsigned long int result = 0;
 
@@ -187,13 +173,7 @@ int main(int argc,char *argv[])
 
     int offset = addr % blocksize;
 
-    cout << "block_id "  <<  block_id << endl;
-    cout << "set_id "  <<  set_id << endl;
-    cout << "offset "  <<  offset << endl;
-    cout << "no of sets "  <<  ns << endl;
-    cout << "assoc "  <<  assoc << endl;
-
-    vector<vector<cache_entries>> cache(ns, vector<cache_entries>(assoc));
+    vector<vector<cache_entries> > cache(ns, vector<cache_entries>(assoc));
     for (int i = 0; i < ns; i++)
         for (int j = 0; j < assoc; j++)
             cache[i][j].ispresent = false;
@@ -218,12 +198,9 @@ int main(int argc,char *argv[])
         ss.clear ();
     }
 
-    cout.setf(ios_base::fixed, ios_base::floatfield); 
-    cout<<"\n";
-
-    cout<< "Total Miss "<< miss << " " << " Miss% " << 100*(double)miss/(double)total_access <<"%" << endl;
-    cout<< "TotalReadMiss "<< rmiss << " " << " ReadMiss% " << 100*(double)rmiss/(double)total_read <<"%"<< endl;
-    cout<< "TotalWriteMiss "<< wmiss << " " << " WriteMiss% " << 100*(double)wmiss/(double)total_write <<"%"<< endl;
+    cout<<  miss << " " << 100*(double)miss/(double)total_access <<"% " ;
+    cout<<  rmiss << " " << 100*(double)rmiss/(double)total_read <<"% ";
+    cout<<  wmiss << " " << 100*(double)wmiss/(double)total_write <<"% "<< endl;
 
     file.close();
     return 0;
