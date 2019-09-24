@@ -1,6 +1,6 @@
 /* GAUTHAM SRINIVASAN . UIN:927008557. */
 
-#include <iostream> // For Standard I/O operations
+#include<iostream> // For Standard I/O operations
 #include<ctype.h>  // For string operations
 #include<string.h> // For strcmp()
 #include<math.h> // for pow() function
@@ -14,7 +14,6 @@
 
 #define TOTAL_ADDRESS_BITS 64
 #define KB 1024
-#define INCREMENT 1
 
 using namespace std;
 typedef struct 
@@ -25,6 +24,7 @@ typedef struct
     long     nano_sec;
 }cache_entries;
 
+/* Following function gets number of bits in a number */
 int Decimal_Binary_bits (int n)
 {
     int num_bits = 0;
@@ -40,12 +40,19 @@ int Decimal_Binary_bits (int n)
     return num_bits;
 }
 
+/* Total miss */
 unsigned long int miss = 0;
+/* Total read miss */
 unsigned long int rmiss = 0;
+/* Total write miss */
 unsigned long int wmiss = 0;
+/* Total access */
 unsigned long int total_access = 0;
+/* Total read */
 unsigned long int total_read = 0;
+/* Total write */
 unsigned long int total_write = 0;
+/* Total hit */
 unsigned long int total_hit = 0;
 
 
@@ -57,6 +64,7 @@ void check_cache_entry (vector<vector<cache_entries> > &cache, int set_id, int a
     srand(time(0));
     struct timespec t;
 
+    /* Update total access, total read and write */
     total_access++;
     if (mode == 'r')
         total_read++;
@@ -64,11 +72,13 @@ void check_cache_entry (vector<vector<cache_entries> > &cache, int set_id, int a
         total_write++;
     
 
+    /* Check for the tag in the cache block */
     for (int i = 0; i < assoc; i++)
     {
         if ((cache[set_id][i].ispresent == true)
                 && (cache[set_id][i].tag == tag))
         {
+            /* If hit, update the time and return */
             found = true;
             clock_gettime(CLOCK_MONOTONIC, &t);
             cache[set_id][i].sec = t.tv_sec;
@@ -78,8 +88,10 @@ void check_cache_entry (vector<vector<cache_entries> > &cache, int set_id, int a
         }
     }
 
+    /* Tag not found in cache block */
     if (!found)
     {
+        /* Update total miss, total miss read and write */
         miss++;
         if (mode == 'r')
             rmiss++;
@@ -90,26 +102,29 @@ void check_cache_entry (vector<vector<cache_entries> > &cache, int set_id, int a
         {
             if (cache[set_id][i].ispresent == false)
             {
+                /* Update the tag in empty block */
                 j = i;
                 break;
             }
             else
             {
+                /* cache is full  */
                 if (rep_policy == 'l')
                 {
-                    
-
+                    /* replace the cache with least time for LRU */
                       if ((cache[set_id][i].sec == cache[set_id][j].sec) && cache[set_id][i].nano_sec < cache[set_id][j].nano_sec)
                           j = i;
                       if ((cache[set_id][i].sec < cache[set_id][j].sec))
                           j = i;
 
                 }
+                /* Replace the block with random block */
                 else if (rep_policy == 'r')
                     j = rand() % assoc;
             }
         }
 
+        /* Update the cache block with new tag */
         cache[set_id][j].ispresent = true;
         cache[set_id][j].tag = tag;
         clock_gettime(CLOCK_MONOTONIC, &t);
@@ -119,7 +134,7 @@ void check_cache_entry (vector<vector<cache_entries> > &cache, int set_id, int a
 
 }
 
-
+/* Mask to extract bits */
 unsigned long int createMask(unsigned a, unsigned b)
 {
    unsigned long int r = 0;
@@ -137,63 +152,65 @@ int main(int argc,char *argv[])
     unsigned long int nb = 0, ns = 0;
     int bo = 0, si = 0, tag = 0;
     unsigned long int tag_num = 0;
-
-    fstream file;
-    //  string addr;
     char mode;
     unsigned long int r = 0;
+    unsigned long int result = 0;
+    unsigned long int addr = 0x1FFF;
+    stringstream ss;
+    int block_id = 0;
+    int set_id = 0;
+    int offset = 0;
+    string tmpLine;
 
+    /* Cache size */
     nk = atoi (argv[1]);
+    /* Associvity  */
     assoc = atoi (argv[2]);
+    /* blocksize */
     blocksize = atoi (argv[3]);
+    /* replacement policy LRU or Random */
     rep_policy = argv[4][0];
 
+    /* Number of blocks */
     nb = (nk * KB) / blocksize;
+    /* Number of sets */
     ns = nb / assoc;
+    /* Number of block offset bits */
     bo = Decimal_Binary_bits(blocksize);
+    /* Number of set index bits */
     si = Decimal_Binary_bits(ns);
+    /* Number of tag bits */
     tag =  TOTAL_ADDRESS_BITS - si - bo; 
 
-
+    /* Mask to extract tag number */
     r = createMask(bo+si,63);
-    unsigned long int result = 0;
 
-
-    file.open ("429.mcf-184B.trace.txt",ios::in);
-    //file.open ("test.txt",ios::in);
-
-
-    unsigned long int addr = 0x1FFF;
-    string a;
-    stringstream ss;
-
-
-    int block_id = addr / blocksize;
-    int set_id = block_id % ns;
-
-    int offset = addr % blocksize;
-
+    
+    /* Initialize cache */
     vector<vector<cache_entries> > cache(ns, vector<cache_entries>(assoc));
     for (int i = 0; i < ns; i++)
         for (int j = 0; j < assoc; j++)
             cache[i][j].ispresent = false;
 
-    while (!file.eof())
+
+    while (getline(cin, tmpLine))
     {
-        file >> mode;
-        file >> a;
-        ss << a;
-        addr = 0;
-        ss >> hex >> addr;
+        /* Get the mode and addr from cmd line */
+        stringstream ss1(tmpLine);
+        ss1 >> mode;
+        ss1 >>  hex >> addr;
+
+        /* Block number */
         block_id = addr / blocksize;
+        /* Set index number */
         set_id = block_id % ns;
-
+        /* Block offset number */
         offset = addr % blocksize;
-        //tag_num = bitExtracted(addr, tag , bo+si-1);
         result = r & addr;
+        /* Tag number */
         tag_num = result >> (bo+si);
-        //cout << "tag_num " << tag_num << endl;
 
+        /* Check the cache enrty */
         check_cache_entry (cache, set_id, assoc, addr, mode, rep_policy, tag_num);
         ss.clear ();
     }
@@ -202,7 +219,6 @@ int main(int argc,char *argv[])
     cout<<  rmiss << " " << 100*(double)rmiss/(double)total_read <<"% ";
     cout<<  wmiss << " " << 100*(double)wmiss/(double)total_write <<"% "<< endl;
 
-    file.close();
     return 0;
 
 }
