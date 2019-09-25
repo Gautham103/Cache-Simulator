@@ -20,9 +20,23 @@ typedef struct
 {
     bool ispresent;
     unsigned long long int tag;
-    time_t   sec;  
-    long     nano_sec;
 }cache_entries;
+
+/* Total miss */
+unsigned long int miss = 0;
+/* Total read miss */
+unsigned long int rmiss = 0;
+/* Total write miss */
+unsigned long int wmiss = 0;
+/* Total access */
+unsigned long int total_access = 0;
+/* Total read */
+unsigned long int total_read = 0;
+/* Total write */
+unsigned long int total_write = 0;
+/* Total hit */
+unsigned long int total_hit = 0;
+
 
 /* Following function gets number of bits in a number */
 int Decimal_Binary_bits (int n)
@@ -40,21 +54,15 @@ int Decimal_Binary_bits (int n)
     return num_bits;
 }
 
-/* Total miss */
-unsigned long int miss = 0;
-/* Total read miss */
-unsigned long int rmiss = 0;
-/* Total write miss */
-unsigned long int wmiss = 0;
-/* Total access */
-unsigned long int total_access = 0;
-/* Total read */
-unsigned long int total_read = 0;
-/* Total write */
-unsigned long int total_write = 0;
-/* Total hit */
-unsigned long int total_hit = 0;
+/* Mask to extract bits */
+unsigned long int createMask(unsigned a, unsigned b)
+{
+    unsigned long int r = 0;
+    for (unsigned i=a; i<=b; i++)
+        r |= 1 << i;
 
+    return r;
+}
 
 void check_cache_entry (vector<vector<cache_entries> > &cache, int set_id, int assoc,
         unsigned long int addr, char mode, char rep_policy, unsigned long int tag)
@@ -78,11 +86,19 @@ void check_cache_entry (vector<vector<cache_entries> > &cache, int set_id, int a
         if ((cache[set_id][i].ispresent == true)
                 && (cache[set_id][i].tag == tag))
         {
-            /* If hit, update the time and return */
+
+            /* If hit, move the block to 1st pos in case of LRU */
+            if (rep_policy == 'l')
+            {
+                cache_entries c1;
+                c1.tag = tag;
+                c1.ispresent = true;
+                cache[set_id].erase (cache[set_id].begin() + i);
+                cache[set_id].insert(cache[set_id].begin(), c1);
+                cache[set_id].resize (assoc);
+            }
+
             found = true;
-            clock_gettime(CLOCK_MONOTONIC, &t);
-            cache[set_id][i].sec = t.tv_sec;
-            cache[set_id][i].nano_sec = t.tv_nsec;
             total_hit++;
             break;
         }
@@ -98,50 +114,39 @@ void check_cache_entry (vector<vector<cache_entries> > &cache, int set_id, int a
         else 
             wmiss++;
 
-        for (i = 0; i < assoc; i++)
+        /* move the block to 1st pos in case of LRU */
+        if (rep_policy == 'l')
         {
-            if (cache[set_id][i].ispresent == false)
-            {
-                /* Update the tag in empty block */
-                j = i;
-                break;
-            }
-            else
-            {
-                /* cache is full  */
-                if (rep_policy == 'l')
-                {
-                    /* replace the cache with least time for LRU */
-                      if ((cache[set_id][i].sec == cache[set_id][j].sec) && cache[set_id][i].nano_sec < cache[set_id][j].nano_sec)
-                          j = i;
-                      if ((cache[set_id][i].sec < cache[set_id][j].sec))
-                          j = i;
-
-                }
-                /* Replace the block with random block */
-                else if (rep_policy == 'r')
-                    j = rand() % assoc;
-            }
+            cache_entries c1;
+            c1.tag = tag;
+            c1.ispresent = true;
+            cache[set_id].pop_back();
+            cache[set_id].insert(cache[set_id].begin(), c1);
+            cache[set_id].resize (assoc);
         }
+        else if (rep_policy == 'r')
+        {
+            for (i = 0; i < assoc; i++)
+            {
+                if (cache[set_id][i].ispresent == false)
+                {
+                    /* Update the tag in empty block */
+                    j = i;
+                    break;
+                }
+                else
+                {
+                    /* Replace the block with random block */
+                    j = rand() % assoc;
+                }
+            }
 
-        /* Update the cache block with new tag */
-        cache[set_id][j].ispresent = true;
-        cache[set_id][j].tag = tag;
-        clock_gettime(CLOCK_MONOTONIC, &t);
-        cache[set_id][i].sec = t.tv_sec;
-        cache[set_id][i].nano_sec = t.tv_nsec;
+            /* Update the cache block with new tag */
+            cache[set_id][j].ispresent = true;
+            cache[set_id][j].tag = tag;
+        }
     }
 
-}
-
-/* Mask to extract bits */
-unsigned long int createMask(unsigned a, unsigned b)
-{
-   unsigned long int r = 0;
-   for (unsigned i=a; i<=b; i++)
-       r |= 1 << i;
-
-   return r;
 }
 
 int main(int argc,char *argv[])
@@ -185,7 +190,7 @@ int main(int argc,char *argv[])
     /* Mask to extract tag number */
     r = createMask(bo+si,63);
 
-    
+
     /* Initialize cache */
     vector<vector<cache_entries> > cache(ns, vector<cache_entries>(assoc));
     for (int i = 0; i < ns; i++)
