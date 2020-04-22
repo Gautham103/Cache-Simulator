@@ -15,13 +15,13 @@ There should be four command line parameters in this order:
 4. repl: the replacement policy (a char); 'l' means LRU, 'r' means random.
 
 **Trace File:** <br/>
-Read traces from the standard input. Each line on the standard input will be a lowercase 'r' (for read) or 'w' (for write) followed by a space and then a 64-bit hexadecimal number giving the address of the memory access. For example, a snippet of a trace file looks like this:
-r 56ecd8
-r 47f639
-r 7ff0001ff
-w 47f63e
-r 4817ef
-r 7d5ab8
+Read traces from the standard input. Each line on the standard input will be a lowercase 'r' (for read) or 'w' (for write) followed by a space and then a 64-bit hexadecimal number giving the address of the memory access. For example, a snippet of a trace file looks like this:<br/>
+r 56ecd8<br/>
+r 47f639<br/>
+r 7ff0001ff<br/>
+w 47f63e<br/>
+r 4817ef<br/>
+r 7d5ab8<br/>
 
 **Output:** <br/>
 The output should be a single line of six numbers separated by spaces. These six numbers are:
