@@ -7,13 +7,14 @@ g++ cache.cc -o cache
 ```
 
 ## Steps to run
-Input
+**Input:** <br/>
 There should be four command line parameters in this order:
 1. nk: the capacity of the cache in kilobytes (an int)
 2. assoc: the associativity of the cache (an int)
 3. blocksize: the size of a single cache block in bytes (an int)
 4. repl: the replacement policy (a char); 'l' means LRU, 'r' means random.
 
+**Trace File:** <br/>
 Read traces from the standard input. Each line on the standard input will be a lowercase 'r' (for read) or 'w' (for write) followed by a space and then a 64-bit hexadecimal number giving the address of the memory access. For example, a snippet of a trace file looks like this:
 r 56ecd8
 r 47f639
@@ -22,7 +23,7 @@ w 47f63e
 r 4817ef
 r 7d5ab8
 
-Output
+**Output:** <br/>
 The output should be a single line of six numbers separated by spaces. These six numbers are:
 The total number of misses,
 The percentage of misses (i.e. total misses divided by total accesses),
